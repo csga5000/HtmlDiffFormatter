@@ -72,7 +72,7 @@ Output in this case would be:
 
 ## Problems
 
-If you have some issues feel free to delve into my code and make alterations.  If they're good changes, please do make a merge request!  If you add an issue add an issue, I may address it, but likely only if it affects my projects using this code.  Otherwise, it's up to the community.
+If you have some issues feel free to delve into my code and make alterations.  If they're good changes, please do make a merge request!  If you have an issue you may also report it here, I may address it, but likely only if it affects my projects using this code.  Otherwise, it's up to the community - either you or someone else can try to tackle it.
 
 I have lots of comments explaining what's going on (for my sanity as much as to help you) so it shouldn't be THAT hard to understand what it's doing.
 
