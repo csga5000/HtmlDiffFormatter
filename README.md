@@ -74,9 +74,11 @@ Output in this case would be:
 
 If you have some issues feel free to delve into my code and make alterations.  If they're good changes, please do make a merge request!  If you add an issue add an issue, I may address it, but likely only if it affects my projects using this code.  Otherwise, it's up to the community.
 
+I have lots of comments explaining what's going on (for my sanity as much as to help you) so it shouldn't be THAT hard to understand what it's doing.
+
 ## Copyrights and Liscensing crap
 
 I include google diff match patch.  It uses this lisence: http://www.apache.org/licenses/LICENSE-2.0
 At the time of writing I have not modified their code, but I reserve that I may change it in the future.  Check the file's commit history to ensure I have not modified it since.
 
-Asside from the licensing of code I included in this project, you may use/modify/distribute the code however you like.  I'm not responsible for what you do with it.
+Asside from the licensing of code I included in this project, you may use/modify/distribute the code however you like.  I'm not responsible for what you do with it.  I make no guarantees as to code quality.
