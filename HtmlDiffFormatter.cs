@@ -6,6 +6,29 @@ namespace csga5000.HtmlDiffFomratter
 {
     public class HtmlDiffFormatter
     {
+        public abstract class Formatter
+        {
+            public abstract string textForChange(string text, DiffMatchPatch.Operation op);
+        }
+        protected class DefaultFormatter : HtmlDiffFormatter.Formatter
+        {
+
+            override public string textForChange(string text, DiffMatchPatch.Operation op)
+            {
+                if (text == "" || text == null)
+                    return "";
+
+                switch (op)
+                {
+                    case DiffMatchPatch.Operation.DELETE:
+                        return "<del style=\"text-decoration: line-through;color: red;\">" + text + "</del>";
+                    case DiffMatchPatch.Operation.INSERT:
+                        return "<ins style=\"text-decoration: underline;color: green;\">" + text + "</ins>";
+                    default:
+                        return text;
+                }
+            }
+        }
         protected class DiffSeg
         {
             public bool tag = false;
@@ -39,6 +62,17 @@ namespace csga5000.HtmlDiffFomratter
                 this.text += c;
                 return changed;
             }
+        }
+
+        Formatter formatter;
+
+        public HtmlDiffFormatter()
+        {
+            formatter = new DefaultFormatter();
+        }
+        public HtmlDiffFormatter(Formatter formatter)
+        {
+            this.formatter = formatter;
         }
 
         protected List<DiffSeg> segsForDiffs(List<DiffMatchPatch.Diff> diffs)
@@ -316,7 +350,7 @@ namespace csga5000.HtmlDiffFomratter
                     //There was a closing tag with no starting, so we include all the text in the line so far.
                     if (depth < startDepth)
                     {
-                        output += textForChange(markText, seg.operation);
+                        output += formatter.textForChange(markText, seg.operation);
                         startDepth = depth;
                     }
 
@@ -331,14 +365,14 @@ namespace csga5000.HtmlDiffFomratter
 
                     i = res.Item1 - 1;//-1 to account for that it's about to be incremented
 
-                    output += textForChange(markText, seg.operation);
+                    output += formatter.textForChange(markText, seg.operation);
                     markText = "";
                     output += res.Item2;
                 }
 
                 if (markText != "")
                 {
-                    output += textForChange(markText, seg.operation);
+                    output += formatter.textForChange(markText, seg.operation);
                     markText = "";
                 }
             }
@@ -369,7 +403,7 @@ namespace csga5000.HtmlDiffFomratter
                 {
                     if (elementContent != seg.text)
                     {
-                        return new Tuple<int, string>(i2, textForChange(elementContent, seg.operation));
+                        return new Tuple<int, string>(i2, formatter.textForChange(elementContent, seg.operation));
                     }
                     else
                         break;
@@ -385,26 +419,12 @@ namespace csga5000.HtmlDiffFomratter
 
             if (depth == 0)
             {
-                return new Tuple<int, string>(i2 - 1, textForChange(elementContent, innerOp.HasValue ? innerOp.Value : seg.operation));
+                return new Tuple<int, string>(i2 - 1, formatter.textForChange(elementContent, innerOp.HasValue ? innerOp.Value : seg.operation));
             }
             //Should only happen in invalid HTML anyway?
             else
             {
                 return new Tuple<int, string>(si + 1, seg.operation == DiffMatchPatch.Operation.DELETE ? "" : seg.text);
-            }
-        }
-        protected string textForChange(string text, DiffMatchPatch.Operation op)
-        {
-            if (text == "" || text == null)
-                return "";
-            switch (op)
-            {
-                case DiffMatchPatch.Operation.DELETE:
-                    return "<del style=\"text-decoration: line-through;color: red;\">" + text + "</del>";
-                case DiffMatchPatch.Operation.INSERT:
-                    return "<ins style=\"text-decoration: underline;color: green;\">" + text + "</ins>";
-                default:
-                    return text;
             }
         }
     }
