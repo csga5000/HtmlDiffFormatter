@@ -7,6 +7,8 @@ Requires google diff match patch.  I took the liberty of including it in this pr
 ## Setup
 Just include the class files somewhere in your project.  You can decide how to want to handle that.
 
+Personally I would execute "git submodule add https://github.com/csga5000/HtmlDiffFormatter.git" somewhere within the git repo for my project
+
 Then do something like this:
 
 ```c#
