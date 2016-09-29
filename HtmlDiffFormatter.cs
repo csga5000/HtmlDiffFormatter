@@ -399,7 +399,10 @@ namespace csga5000.HtmlDiffFomratter
                 if (innerOp == null)
                     innerOp = tSeg.operation;
 
-                if (tSeg.operation != innerOp)
+				if (tSeg.tag)
+					depth += tSeg.startTag ? 1 : -1;
+
+				if (tSeg.operation != innerOp && depth != 0)
                 {
                     if (elementContent != seg.text)
                     {
@@ -412,9 +415,6 @@ namespace csga5000.HtmlDiffFomratter
                 {
                     elementContent += tSeg.text;
                 }
-
-                if (tSeg.tag)
-                    depth += tSeg.startTag ? 1 : -1;
             }
 
             if (depth == 0)
