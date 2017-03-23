@@ -131,6 +131,10 @@ namespace csga5000.HtmlDiffFomratter
 								chi--;
 								changedOp = false;
 							}
+							if (adiff.text.Count() <= chi || chi < 0)
+							{
+								break;
+							}
 							var adch = adiff.text.ElementAt(chi);
 
 							if (finishedTag)

@@ -2567,7 +2567,7 @@ namespace DiffMatchPatch
         public List<Patch> patch_fromText(string textline)
         {
             List<Patch> patches = new List<Patch>();
-            if (textline.Length == 0)
+            if (textline == null || textline.Length == 0)
             {
                 return patches;
             }
