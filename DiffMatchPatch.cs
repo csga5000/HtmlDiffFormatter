@@ -2323,11 +2323,7 @@ namespace DiffMatchPatch
          */
         public List<Patch<T>> patch_fromText(string textline, SymbolTextParser<T> parser)
         {
-<<<<<<< HEAD
             List<Patch<T>> patches = new List<Patch<T>>();
-=======
-            List<Patch> patches = new List<Patch>();
->>>>>>> origin/master
             if (textline == null || textline.Length == 0)
             {
                 return patches;
