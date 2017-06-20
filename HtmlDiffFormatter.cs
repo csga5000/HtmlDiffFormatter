@@ -78,7 +78,6 @@ namespace csga5000.HtmlDiffFomratter
 			public DiffSeg(DiffMatchPatch.Diff<string> diff)
 			{
 				this.diff = diff;
-
 				text = SymbolReader.TextFromSymbols(diff.text).Trim();
 
 				if (text == null || text.Length == 0)
