@@ -90,6 +90,9 @@ namespace DiffMatchPatch
 				}
 			}
 
+			if (s.Length > 0)
+				symbols.Add(new Symbol<string>(s));
+
 			return symbols;
 		}
 	}
@@ -120,6 +123,9 @@ namespace DiffMatchPatch
 				}
 			}
 
+			if (s.Length > 0)
+				symbols.Add(new Symbol<string>(s));
+
 			return symbols;
 		}
 	}
@@ -145,12 +151,16 @@ namespace DiffMatchPatch
 
 		protected bool intag = false;
 		protected bool inComment = false;
+		protected bool nextnew = false;
 
 		protected bool shouldUseTextParser(char c)
 		{
 			//Flip intag to false, but treet this character as part of a tag (return false)
 			if (intag && c == '>')
+			{
+				nextnew = true;
 				return intag = false;
+			}
 			//Flip intag to true and treet this character as part of a tag (return false)
 			else if (!intag && c == '<')
 				return !(intag = true);
@@ -172,7 +182,7 @@ namespace DiffMatchPatch
 				char c = text[i];
 
 				//Handle html comments.  Because somebody could have an html tag inside a comment and it could jack everything up.
-				if (!inComment && i+4 < text.Length && text.Substring(i, 4) == "<!--")
+				if (!inComment && i + 4 < text.Length && text.Substring(i, 4) == "<!--")
 				{
 					if (s.Length > 0 && usingTextParser)
 					{
@@ -202,21 +212,30 @@ namespace DiffMatchPatch
 
 					continue;
 				}
+				var isnew = nextnew;
+				nextnew = false;
 				var shouldUse = shouldUseTextParser(c);
 
 				//We just flipped parsing methods, let's parse the text prior to this character using the current parser, and then reset to use the new method
-				if (s.Length > 0 && shouldUse != usingTextParser)
+				if (s.Length > 0 && (shouldUse != usingTextParser || isnew))
 				{
 					if (usingTextParser)
 						symbols.AddRange(textParser.SymbolsFromText(s));
 					else
 						symbols.Add(new Symbol<string>(s));
-
 					s = "";
 				}
 
 				s += c;
 				usingTextParser = shouldUse;
+			}
+
+			if (s.Length > 0)
+			{
+				if (usingTextParser)
+					symbols.AddRange(textParser.SymbolsFromText(s));
+				else
+					symbols.Add(new Symbol<string>(s));
 			}
 
 			return symbols;

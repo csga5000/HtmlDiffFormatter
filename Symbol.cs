@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Web;
 
@@ -21,8 +22,12 @@ namespace DiffMatchPatch
 			if (value is string)
 			{
 				string self = value as string;
+				if (self.Length == 0)
+					return 0;
 				char1 = self[self.Length - 1];
 				self = next.value as string;
+				if (self.Length == 0)
+					return 0;
 				char2 = self[self.Length - 1];
 			}
 			else if (value is char)
@@ -93,9 +98,33 @@ namespace DiffMatchPatch
 		{
 			if (obj is Symbol<T>)
 			{
-				return (obj as Symbol<T>).value.Equals(value);
+				var so = (obj as Symbol<T>);
+				if (value == null)
+					return so.value == null;
+
+				return value.Equals(so.value);
 			}
 			return false;
+		}
+
+		public static bool operator ==(Symbol<T> a, Symbol<T> b)
+		{
+			if (System.Object.ReferenceEquals(a, b))
+				return true;
+
+			if (((object)a == null) || ((object)b == null))
+				return false;
+
+			return a.Equals(b);
+		}
+		public static bool operator !=(Symbol<T> a, Symbol<T> b)
+		{
+			return !(a == b);
+		}
+
+		public override int GetHashCode()
+		{
+			return value == null ? -1 : value.GetHashCode();
 		}
 	}
 
@@ -129,7 +158,7 @@ namespace DiffMatchPatch
 			if (src.Count < other.Count)
 				return -1;
 
-			for (var si = startIndex; si < src.Count; si++)
+			for (var si = startIndex; si+other.Count < src.Count; si++)
 			{
 				var match = true;
 				for (var oi = 0; oi < other.Count; oi++)

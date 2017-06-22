@@ -1607,7 +1607,7 @@ namespace DiffMatchPatch
             //    : "Pattern too long for this application.";
 
             // Initialise the alphabet.
-            Dictionary<Symbol<T>, int> s = match_alphabet(pattern);
+            Dictionary<int, int> s = match_alphabet(pattern);
 
             // Highest score beyond which we give up.
             double score_threshold = Match_Threshold;
@@ -1662,14 +1662,14 @@ namespace DiffMatchPatch
                 for (int j = finish; j >= start; j--)
                 {
                     int charMatch;
-                    if (text.Count <= j - 1 || !s.ContainsKey(text[j - 1]))
+                    if (text.Count <= j - 1 || !s.ContainsKey(text[j - 1].GetHashCode()))
                     {
                         // Out of range.
                         charMatch = 0;
                     }
                     else
                     {
-                        charMatch = s[text[j - 1]];
+                        charMatch = s[text[j - 1].GetHashCode()];
                     }
                     if (d == 0)
                     {
@@ -1740,21 +1740,21 @@ namespace DiffMatchPatch
          * @param pattern The text to encode.
          * @return Hash of character locations.
          */
-        protected Dictionary<Symbol<T>, int> match_alphabet(List<Symbol<T>> pattern)
+        protected Dictionary<int, int> match_alphabet(List<Symbol<T>> pattern)
         {
-            Dictionary<Symbol<T>, int> s = new Dictionary<Symbol<T>, int>();
+            Dictionary<int, int> s = new Dictionary<int, int>();
             foreach (Symbol<T> c in pattern)
             {
-                if (!s.ContainsKey(c))
+                if (!s.ContainsKey(c.GetHashCode()))
                 {
-                    s.Add(c, 0);
+                    s.Add(c.GetHashCode(), 0);
                 }
             }
             int i = 0;
             foreach (Symbol<T> c in pattern)
             {
-                int value = s[c] | (1 << (pattern.Count - i - 1));
-                s[c] = value;
+                int value = s[c.GetHashCode()] | (1 << (pattern.Count - i - 1));
+                s[c.GetHashCode()] = value;
                 i++;
             }
             return s;
@@ -2022,7 +2022,7 @@ namespace DiffMatchPatch
                     if (start_loc != -1)
                     {
                         end_loc = match_main(text, text1.RangeFrom(text1.Count - this.Match_MaxBits), expected_loc + text1.Count - this.Match_MaxBits);
-                        if (end_loc == -1 || start_loc >= end_loc)
+                        if (end_loc == -1 || start_loc > end_loc)
                         {
                             // Can't find valid trailing context.  Drop this patch.
                             start_loc = -1;
@@ -2037,7 +2037,7 @@ namespace DiffMatchPatch
                 {
                     // No match found.  :(
                     results[x] = false;
-                    // Subtract the delta for this failed Patch<T> from subsequent patches.
+                    // Subtract the delta for this failed patch from subsequent patches.
                     delta -= aPatch.length2 - aPatch.length1;
                 }
                 else
@@ -2118,7 +2118,7 @@ namespace DiffMatchPatch
             List<Symbol<T>> nullPadding = Symbol<T>.EmptyList;
             for (short x = 1; x <= paddingLength; x++)
             {
-                nullPadding.Add(new Symbol<T>());
+				nullPadding.Add(new Symbol<T>());
             }
 
             // Bump all the patches forward.
@@ -2208,8 +2208,7 @@ namespace DiffMatchPatch
                         patch.length1 = patch.length2 = precontext.Count;
                         patch.diffs.Add(new Diff<T>(Operation.EQUAL, precontext));
                     }
-                    while (bigpatch.diffs.Count != 0
-                        && patch.length1 < patch_size - this.Patch_Margin)
+                    while (bigpatch.diffs.Count != 0 && patch.length1 < patch_size - this.Patch_Margin)
                     {
                         Operation diff_type = bigpatch.diffs[0].operation;
                         List<Symbol<T>> diff_text = bigpatch.diffs[0].text;
@@ -2249,14 +2248,13 @@ namespace DiffMatchPatch
                                 empty = false;
                             }
                             patch.diffs.Add(new Diff<T>(diff_type, diff_text));
-                            if (diff_text == bigpatch.diffs[0].text)
+                            if (diff_text.SequenceEqual(bigpatch.diffs[0].text))
                             {
                                 bigpatch.diffs.RemoveAt(0);
                             }
                             else
                             {
-                                bigpatch.diffs[0].text =
-                                    bigpatch.diffs[0].text.RangeFrom(diff_text.Count);
+                                bigpatch.diffs[0].text = bigpatch.diffs[0].text.RangeFrom(diff_text.Count);
                             }
                         }
                     }
