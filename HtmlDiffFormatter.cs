@@ -71,14 +71,16 @@ namespace csga5000.HtmlDiffFomratter
 			protected string text;
 			public bool startTag { get; set; }
 			public bool selfClosing { get; set; }
-			public DiffMatchPatch.Diff<string> diff { get; set; }
+			public DiffMatchPatch.Operation op;
 
 			protected List<DiffSeg> children;
 
-			public DiffSeg(DiffMatchPatch.Diff<string> diff)
+			public DiffSeg(Operation op, string text)
 			{
-				this.diff = diff;
-				text = SymbolReader.TextFromSymbols(diff.text).Trim();
+				this.op = op;
+				this.text = text;
+				text = text.Trim();
+				startTag = true;
 
 				if (text == null || text.Length == 0)
 					return;
@@ -86,12 +88,10 @@ namespace csga5000.HtmlDiffFomratter
 				if (text.IndexOf("<!--") == 0) {
 					tagName = "<!--";
 					selfClosing = true;
-					startTag = true;
 					tag = true;
 				}
 				else if (text[0] == '<')
 				{
-					children = new List<DiffSeg>();
 					tag = true;
 					tagName = "";
 
@@ -99,12 +99,24 @@ namespace csga5000.HtmlDiffFomratter
 
 					foreach (var c in text)
 					{
-						if (!named) {
+						if (!named)
+						{
+							if (c == '<')
+								continue;
 							if (c == '/')
-								startTag = false;
-							else if (c != ' ')
+							{
+								if (tagName.Length > 0)
+								{
+									selfClosing = true;
+									named = true;
+									break;
+								}
+								else
+									startTag = false;
+							}
+							else if (c != ' ' && c != '>')
 								tagName += c;
-							else if (c == ' ' && tagName.Length > 0)
+							else if ((c == ' ' && tagName.Length > 0) || c == '>')
 								named = true;
 						}
 						else
@@ -121,34 +133,119 @@ namespace csga5000.HtmlDiffFomratter
 					if (SELF_CLOSING_TAGS.Contains(tagName))
 						selfClosing = true;
 				}
+
+				if (CanHaveChildren)
+					children = new List<DiffSeg>();
+			}
+			public bool CanHaveChildren
+			{
+				get
+				{
+					return tag && startTag;
+				}
 			}
 
 			public void addChild(DiffSeg seg)
 			{
-				if (!tag)
+				if (!CanHaveChildren)
 					throw new Exception("Non-tag diff segments have no children");
 				this.children.Add(seg);
 			}
 
 			public List<DiffSeg> getChildren()
 			{
-				if (!tag)
+				if (!CanHaveChildren)
 					throw new Exception("Non-tag diff segments have no children");
 				return this.children;
 			}
 
 			public bool hasText()
 			{
-				if (!tag)
+				if (!CanHaveChildren)
 					throw new Exception("Diff segs that aren't tags *are* text!");
 
 				return this.children.Any(c => !c.tag || c.hasText());
 			}
+			public bool childrenMatch()
+			{
+				//If we have 1 or 0 children then we're just a tag with no children.
+				if (!CanHaveChildren || children.Count < 2)
+					return true;
+
+				return this.children.All(c => c.op == op && c.childrenMatch());
+			}
 			public string getText()
 			{
 				String text = this.text;
-				if (tag)
+				if (CanHaveChildren)
 					this.children.ForEach(c => text += c.getText());
+
+				return text;
+			}
+			public string getInnerText()
+			{
+				String text = "";
+				if (CanHaveChildren)
+					this.children.ForEach(c => text += c.getText());
+
+				return text;
+			}
+			protected string textForGroup(List<DiffSeg> group)
+			{
+				var groupText = "";
+				group.ForEach(ds => groupText += ds.getText());
+				return groupText;
+			}
+			public string getFormattedText(Formatter formatter)
+			{
+				String text = this.text;
+
+				if (CanHaveChildren && children.Count > 0)
+				{
+					if (childrenMatch())
+					{
+						return formatter.textForChange(getText(), op);
+					}
+					else
+					{
+						//We could just append the text of all the children's results to "getFormattedText" but instead we group bits in sequence that are all the same operation.
+						Operation currop = this.op;
+						List<DiffSeg> sameOp = new List<DiffSeg>();
+
+						for (var i = 0; i < children.Count; i++)
+						{
+							var curr = children[i];
+							var canGroup = curr.childrenMatch();
+
+							if (sameOp.Count == 0 && canGroup) {
+								currop = curr.op;
+								sameOp.Add(curr);
+							}
+							else if (canGroup && curr.op == currop)
+								sameOp.Add(curr);
+
+							else
+							{
+								if (sameOp.Count > 0)
+								{
+									text += formatter.textForChange(textForGroup(sameOp), currop);
+									sameOp.Clear();
+								}
+								if (canGroup)
+								{
+									currop = curr.op;
+									sameOp.Add(curr);
+								}
+								else
+									text += curr.getFormattedText(formatter);
+							}
+						}
+						if (sameOp.Count > 0)
+							text += formatter.textForChange(textForGroup(sameOp), currop);
+					}
+				}
+				else if (!tag)
+					return formatter.textForChange(text, this.op);
 
 				return text;
 			}
@@ -170,35 +267,27 @@ namespace csga5000.HtmlDiffFomratter
 			if (!seg.tag || seg.selfClosing || !seg.startTag)
 				return index;
 
-			var startingIndex = index;
 			List<DiffSeg> children = seg.getChildren();
 			children.Clear();
 
 			for (index++; index < segs.Count; index++)
 			{
 				var cseg = segs[index];
-				if (cseg.diff.operation == seg.diff.operation)
+
+				var ender = !cseg.startTag && cseg.tag;
+				children.Add(cseg);
+				if (ender)
 				{
-					children.Add(cseg);
-					if (!cseg.startTag)
-					{
-						return index;
-					}
-				}
-				else
-				{
-					children.Clear();
-					return startingIndex;
+					//The differ tends to make previous ending tags be "changed" if the same tag is on the end of what was really changed, and the real closing tag is "the same"
+					//If the HTML is valid, then we can be certain that if we're at an ending tag at this point in our recursion, then it must be the case where it was marked incorrectly
+					seg.op = cseg.op;
+					return index;
 				}
 
-				index = addChildren(seg, segs, index);
+				index = addChildren(cseg, segs, index);
 			}
 			//This *should* mean bad html.  So we'll hack an end tag in.
-			var endTagS = new List<Symbol<string>>();
-			endTagS.Add(new Symbol<string>("</"+seg.tagName+">"));
-			var endTagD = new Diff<string>(seg.diff.operation, endTagS);
-
-			children.Add(new DiffSeg(endTagD));
+			children.Add(new DiffSeg(seg.op, "</" + seg.tagName + ">"));
 			return index;
 		}
 
@@ -213,7 +302,9 @@ namespace csga5000.HtmlDiffFomratter
 
 		public string diffOutput(List<Diff<string>> diffs)
 		{
-			var segs = diffs.Select(d => new DiffSeg(d)).ToList();
+			var segs = new List<DiffSeg>();
+
+			diffs.ForEach(d => d.text.ForEach(t => segs.Add(new DiffSeg(d.operation, t.value))));
 
 			var rootSegs = new List<DiffSeg>();
 
@@ -233,7 +324,7 @@ namespace csga5000.HtmlDiffFomratter
 			foreach (var seg in rootSegs)
 			{
 				//Since segments only contain the children that match their operation, all children are of the same operation.
-				output += formatter.textForChange(seg.getText(), seg.diff.operation);
+				output += seg.getFormattedText(formatter);
 			}
 
 			return output;
