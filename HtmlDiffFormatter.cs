@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using DiffMatchPatch;
+using csga5000.DiffMatchPatch;
 
 namespace csga5000.HtmlDiffFomratter
 {
