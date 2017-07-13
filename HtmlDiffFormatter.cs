@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using csga5000.DiffMatchPatch;
+using System.Text.RegularExpressions;
+using HtmlAgilityPack;
 
 namespace csga5000.HtmlDiffFomratter
 {
@@ -44,13 +46,71 @@ namespace csga5000.HtmlDiffFomratter
 		{
 			public abstract string textForChange(string text, DiffMatchPatch.Operation op);
 		}
-		protected class DefaultFormatter : HtmlDiffFormatter.Formatter
-		{
+        protected class DefaultFormatter : HtmlDiffFormatter.Formatter
+        {
+            string[] tableElements = new string[] { "<table", "<td", "<tr" };
+            string[] listElements = new string[] { "<li", "<ol", "<ul" };
+            HtmlAgilityPack.HtmlDocument html = new HtmlAgilityPack.HtmlDocument();
 
 			override public string textForChange(string text, DiffMatchPatch.Operation op)
 			{
 				if (text == "" || text == null)
 					return "";
+
+                html.LoadHtml(text);
+
+                if (html.DocumentNode.Descendants().Count() > 1)
+                {
+                    if (listElements.Any(text.Contains))
+                    {
+                        var listNodes = html.DocumentNode.ChildNodes.Where(n => n.Name == "li" || n.Name == "ol");
+
+                        foreach (var li in listNodes)
+                        {
+                            addAttribute("class", Tuple.Create("styleDel", "styleIns"), op, li);
+                        }
+                    }
+
+                    if (tableElements.Any(text.Contains))
+                    {
+                        var tableNodes = html.DocumentNode.Descendants().Where(t => t.Name == "table" || t.Name == "tr" || t.Name == "td");
+                        foreach (var table in tableNodes)
+                        {
+                            if (table.Name == "table")
+                            {
+                                addAttribute("bordercolor", Tuple.Create("red", "green"), op, table);
+                            }
+                            else if (table.Name == "td")
+                            {
+                                addAttribute("class", Tuple.Create("tdDel", "tdIns"), op, table);
+                            }
+                            else
+                            {
+                                addAttribute("class", Tuple.Create("color: red", "color: green"), op, table);
+                            }
+                        }
+                    }
+
+                    if (text.Contains("<div"))
+                    {
+                        var divs = html.DocumentNode.Descendants().Where(d => d.Name == "div");
+                        foreach (var div in divs)
+                        {
+                            addAttribute("class", Tuple.Create("styleDel", "styleIns"), op, div);
+                        }
+                    }
+
+                    if (text.Contains("<img"))
+                    {
+                        var images = html.DocumentNode.Descendants().Where(t => t.Name == "img");
+                        foreach (var image in images)
+                        {
+                            addAttribute("class", Tuple.Create("imgDel", "imgIns"), op, image);
+                        }
+                    }
+
+                    return html.DocumentNode.OuterHtml;
+                }
 
 				switch (op)
 				{
@@ -62,7 +122,20 @@ namespace csga5000.HtmlDiffFomratter
 						return text;
 				}
 			}
-		}
+
+            private void addAttribute(string key, Tuple<string, string> values, Operation op, HtmlNode element)
+            {
+                switch (op)
+                {
+                    case DiffMatchPatch.Operation.DELETE:
+                        element.Attributes.Add(key, values.Item1);
+                        break;
+                    case DiffMatchPatch.Operation.INSERT:
+                        element.Attributes.Add(key, values.Item2);
+                        break;
+                }
+            }
+        }
 		protected class DiffSeg
 		{
 			public static string[] SELF_CLOSING_TAGS = new string[] { "area", "base", "br", "col", "command", "embed", "hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr", "!DOCTYPE" };
@@ -208,7 +281,7 @@ namespace csga5000.HtmlDiffFomratter
 					}
 					else
 					{
-						//We could just append the text of all the children's results to "getFormattedText" but instead we group bits in sequence that are all the same operation.
+						//We could just append the text of all the children's results t xmo "getFormattedText" but instead we group bits in sequence that are all the same operation.
 						Operation currop = this.op;
 						List<DiffSeg> sameOp = new List<DiffSeg>();
 
@@ -294,8 +367,8 @@ namespace csga5000.HtmlDiffFomratter
 		public string diffOutput(string startText, string endText)
 		{
 			var diffs = dmp.diff_main(SymbolParser.SymbolsFromText(startText), SymbolParser.SymbolsFromText(endText));
-
-			dmp.diff_cleanupSemantic(diffs);
+            
+			//dmp.diff_cleanupSemantic(diffs);
 
 			return diffOutput(diffs);
 		}
