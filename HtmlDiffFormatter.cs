@@ -50,6 +50,9 @@ namespace csga5000.HtmlDiffFomratter
         {
             string[] tableElements = new string[] { "<table", "<td", "<tr" };
             string[] listElements = new string[] { "<li", "<ol", "<ul" };
+            string image = "<img";
+            string div = "<div";
+            bool addedAttribute = false;
             HtmlAgilityPack.HtmlDocument html = new HtmlAgilityPack.HtmlDocument();
 
 			override public string textForChange(string text, DiffMatchPatch.Operation op)
@@ -58,12 +61,13 @@ namespace csga5000.HtmlDiffFomratter
 					return "";
 
                 html.LoadHtml(text);
+                var containsHtml = (html.DocumentNode.Descendants().Count() > 0);
 
-                if (html.DocumentNode.Descendants().Count() > 1)
+                if (containsHtml)
                 {
                     if (listElements.Any(text.Contains))
                     {
-                        var listNodes = html.DocumentNode.ChildNodes.Where(n => n.Name == "li" || n.Name == "ol");
+                        var listNodes = html.DocumentNode.Descendants().Where(n => n.Name == "li" || n.Name == "ol");
 
                         foreach (var li in listNodes)
                         {
@@ -73,7 +77,7 @@ namespace csga5000.HtmlDiffFomratter
 
                     if (tableElements.Any(text.Contains))
                     {
-                        var tableNodes = html.DocumentNode.Descendants().Where(t => t.Name == "table" || t.Name == "tr" || t.Name == "td");
+                        var tableNodes = html.DocumentNode.Descendants().Where(t => t.Name == "table" || t.Name == "td" || t.Name == "tr");
                         foreach (var table in tableNodes)
                         {
                             if (table.Name == "table")
@@ -91,7 +95,7 @@ namespace csga5000.HtmlDiffFomratter
                         }
                     }
 
-                    if (text.Contains("<div"))
+                    if (text.Contains(div))
                     {
                         var divs = html.DocumentNode.Descendants().Where(d => d.Name == "div");
                         foreach (var div in divs)
@@ -100,16 +104,25 @@ namespace csga5000.HtmlDiffFomratter
                         }
                     }
 
-                    if (text.Contains("<img"))
+                    if (text.Contains(image))
                     {
-                        var images = html.DocumentNode.Descendants().Where(t => t.Name == "img");
+                        var images = html.DocumentNode.Descendants().Where(t => t.Name == "img").ToList();
+                        var imagefile = (op == Operation.INSERT) ? "image-ins" : "image-del";
+                        var svg = "<img src='/Bundles/mco/images/" + imagefile + ".svg' class='svg' >";
                         foreach (var image in images)
                         {
                             addAttribute("class", Tuple.Create("imgDel", "imgIns"), op, image);
+                            if(op != Operation.EQUAL)
+                                image.ParentNode.InnerHtml = "<div class='img'>" + image.OuterHtml + "<br />" + svg + "</div>";
                         }
                     }
 
-                    return html.DocumentNode.OuterHtml;
+                    if (addedAttribute)
+                    {
+                        addedAttribute = false;
+                        return html.DocumentNode.OuterHtml;
+                    }
+
                 }
 
 				switch (op)
@@ -125,6 +138,7 @@ namespace csga5000.HtmlDiffFomratter
 
             private void addAttribute(string key, Tuple<string, string> values, Operation op, HtmlNode element)
             {
+                addedAttribute = true;
                 switch (op)
                 {
                     case DiffMatchPatch.Operation.DELETE:
@@ -334,7 +348,7 @@ namespace csga5000.HtmlDiffFomratter
 		{
 			this.formatter = formatter;
 		}
-
+        public static bool change;
 		protected int addChildren(DiffSeg seg, List<DiffSeg> segs, int index)
 		{
 			if (!seg.tag || seg.selfClosing || !seg.startTag)
@@ -342,18 +356,18 @@ namespace csga5000.HtmlDiffFomratter
 
 			List<DiffSeg> children = seg.getChildren();
 			children.Clear();
-
 			for (index++; index < segs.Count; index++)
 			{
 				var cseg = segs[index];
 
 				var ender = !cseg.startTag && cseg.tag;
-				children.Add(cseg);
-				if (ender)
+                children.Add(cseg);
+                if (ender)
 				{
-					//The differ tends to make previous ending tags be "changed" if the same tag is on the end of what was really changed, and the real closing tag is "the same"
-					//If the HTML is valid, then we can be certain that if we're at an ending tag at this point in our recursion, then it must be the case where it was marked incorrectly
-					seg.op = cseg.op;
+                    //The differ tends to make previous ending tags be "changed" if the same tag is on the end of what was really changed, and the real closing tag is "the same"
+                    //If the HTML is valid, then we can be certain that if we're at an ending tag at this point in our recursion, then it must be the case where it was marked incorrectly
+                    seg.op = cseg.op;
+                    
 					return index;
 				}
 
@@ -368,7 +382,7 @@ namespace csga5000.HtmlDiffFomratter
 		{
 			var diffs = dmp.diff_main(SymbolParser.SymbolsFromText(startText), SymbolParser.SymbolsFromText(endText));
             
-			//dmp.diff_cleanupSemantic(diffs);
+			dmp.diff_cleanupSemantic(diffs);
 
 			return diffOutput(diffs);
 		}
